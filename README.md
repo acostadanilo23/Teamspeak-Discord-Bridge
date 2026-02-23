@@ -1,4 +1,4 @@
-# ts-bot — Bidirectional TeamSpeak / Discord Audio Bridge
+# Teamspeak-Discord-Bridge
 
 A real-time, bidirectional audio bridge that connects a **TeamSpeak 3** server to a **Discord** voice channel. Audio flows in both directions simultaneously, so users on either platform can hear each other with minimal latency.
 
@@ -255,6 +255,21 @@ DISCORD_STREAM_PORT=8080     # Discord audio → TS3 WAV stream
 TS3_STREAM_PORT=8081         # TS3 audio → Discord WAV stream
 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 ```
+
+---
+
+## Credits
+
+This project was built on top of the following open-source libraries:
+
+| Project | Author | License | Link |
+|---|---|---|---|
+| **tsclientlib** / tsproto | [Flakebi](https://github.com/Flakebi) / [ReSpeak](https://github.com/ReSpeak) | MIT / Apache-2.0 | [github.com/ReSpeak/tsclientlib](https://github.com/ReSpeak/tsclientlib) |
+| **TS3AudioBot** | [Splamy](https://github.com/Splamy) | ... | [github.com/Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot) |
+
+`tsclientlib` provides the Rust TeamSpeak 3 client protocol implementation (tsproto) and the `AudioHandler` used for per-client Opus decoding in `ts3-listener`.
+
+`TS3AudioBot` is the C# bot engine used by both `bot-discord-audio` and `musico-acosta` to connect to TeamSpeak and play audio streams.
 
 ---
 
