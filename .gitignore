@@ -1,0 +1,48 @@
+# Binaries and executables
+**/TS3AudioBot
+**/ts3-listener
+**/yt-dlp-wrapper
+shared/lib/
+shared/WebInterface/
+shared/NLog.config
+shared/TS3AudioBot.dll.config
+shared/cookies.txt
+
+# Configuration and sensitive data
+config.env
+shared/discord-token.txt
+**/ts3audiobot.db
+**/ts3audiobot-log.db
+**/*.toml
+!services/**/ts3audiobot.toml
+!services/**/bot.toml
+!services/**/rights.toml
+
+# Logs and runtime data
+.pids/
+.service-logs/
+**/logs/
+**/*.log
+
+# Python
+__pycache__/
+*.pyc
+bridge-env/
+
+# Rust
+target/
+ts3-listener/target/
+
+# System and IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Project context
+context.txt
+gemini.md
+_fix_config.py
+write_script.py
+write_discord.py
+fix_discord_silence.py
+fix_setup.py
