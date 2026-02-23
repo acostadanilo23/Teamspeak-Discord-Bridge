@@ -10,6 +10,15 @@ shared/NLog.config
 shared/TS3AudioBot.dll.config
 shared/cookies.txt
 
+# Symlinks to shared binaries inside services (machine-local)
+services/**/lib
+services/**/WebInterface
+services/**/NLog.config
+services/**/TS3AudioBot.dll.config
+services/**/TS3AudioBot
+services/**/yt-dlp-wrapper
+services/**/cookies.txt
+
 # Configuration and sensitive data
 config.env
 shared/discord-token.txt
