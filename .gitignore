@@ -1,6 +1,8 @@
 # Binaries and executables
 **/TS3AudioBot
-**/ts3-listener
+**/ts3-listener-bin
+services/bot-discord-mic/ts3-listener
+shared/ts3-listener
 **/yt-dlp-wrapper
 shared/lib/
 shared/WebInterface/
@@ -31,7 +33,7 @@ bridge-env/
 
 # Rust
 target/
-ts3-listener/target/
+**/target/
 
 # System and IDE
 .DS_Store
