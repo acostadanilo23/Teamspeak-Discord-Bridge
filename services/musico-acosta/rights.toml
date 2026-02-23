@@ -1,0 +1,30 @@
+# Rights declaration file
+
+# Permissões globais (para todo mundo)
+"+" = [
+    "cmd.help.*",
+    "cmd.pm.*",
+    "cmd.version",
+    "cmd.play",
+    "cmd.pause",
+    "cmd.stop",
+    "cmd.seek",
+    "cmd.volume",
+    "cmd.list.*",
+    "cmd.add",
+    "cmd.clear",
+    "cmd.previous",
+    "cmd.next",
+    "cmd.search.*",
+    "cmd.playlist.*",
+    "cmd.song",
+    "cmd.repeat",
+    "cmd.random",
+    "cmd.history.*"
+]
+
+# Admin rule
+[[rule]]
+    # Por padrão, trata conexões do localhost como admin
+    ip = [ "127.0.0.1", "::1" ]
+    "+" = "*"
