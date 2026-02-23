@@ -8,47 +8,41 @@ Built with **Rust**, **Python (asyncio)**, and **C# (.NET)**, deployed as four i
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           ts-bot system                                 │
-│                                                                         │
-│  ┌─────────────────────┐          ┌──────────────────────────────────┐  │
-│  │   TeamSpeak Server  │          │       Discord Server             │  │
-│  │   (remote host)     │          │       (Discord API)              │  │
-│  └────────┬────────────┘          └──────────┬───────────────────────┘  │
-│           │  UDP (TS3 protocol)              │  WebSocket + WebRTC      │
-│           │                                 │                           │
-│  ┌────────▼────────────┐          ┌──────────▼───────────────────────┐  │
-│  │  ts3-listener       │          │  discord-bridge                  │  │
-│  │  (Rust / Tokio)     │          │  (Python / asyncio)              │  │
-│  │                     │          │                                  │  │
-│  │  - Connects as TS3  │          │  - Discord bot (!join / !leave)  │  │
-│  │    client (tsproto) │          │  - Captures voice via            │  │
-│  │  - Decodes Opus→PCM │          │    discord-ext-voice-recv        │  │
-│  │  - Broadcasts PCM   │          │  - Injects silence on idle       │  │
-│  │    via broadcast    │          │  - Streams captured audio as     │  │
-│  │    channel          │          │    WAV over HTTP (:8080)         │  │
-│  │                     │          │  - Plays TS3 stream via FFmpeg   │  │
-│  │  HTTP WAV stream    │          │    in the Discord voice channel  │  │
-│  │  :8081/stream  ─────┼──────────┼──► FFmpegPCMAudio               │  │
-│  └─────────────────────┘          └──────────────────────────────────┘  │
-│           ▲                                  │                           │
-│           │                                  │ HTTP WAV stream :8080     │
-│           │                   ┌──────────────▼───────────────────────┐  │
-│           │                   │  bot-discord-audio                   │  │
-│           │                   │  (TS3AudioBot / C# / .NET)           │  │
-│           │                   │                                      │  │
-│           │                   │  - Connects to TS3 as a client       │  │
-│           │                   │  - On connect: auto-plays :8080      │  │
-│           │                   │    and broadcasts Discord audio      │  │
-│           │                   │    to all users in the channel       │  │
-│           │                   └──────────────────────────────────────┘  │
-│           │                                                             │
-│  ┌────────┴──────────────────────────────────────────────────────────┐  │
-│  │  musico-acosta  (TS3AudioBot / C# / .NET)                         │  │
-│  │  Standalone music bot — plays YouTube, SoundCloud, etc. in TS3   │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    TS3["TeamSpeak 3 Server\n(remote host, UDP)"] 
+    DC["Discord Server\n(WebSocket + WebRTC)"]
+
+    subgraph ts-listener ["ts3-listener — Rust / Tokio"]
+        TL_CONN["Connects as TS3 client\n(tsproto)"] --> TL_DEC["Decodes Opus -> PCM\n(tsclientlib AudioHandler)"]
+        TL_DEC --> TL_BC["Broadcasts PCM\n(Tokio broadcast channel)"]
+        TL_BC --> TL_HTTP["HTTP WAV stream\n:8081/stream"]
+    end
+
+    subgraph bridge ["discord-bridge — Python / asyncio"]
+        DB_BOT["Discord bot\n(!join / !leave)"] --> DB_REC["Captures voice\n(discord-ext-voice-recv)"]
+        DB_REC --> DB_SIL["Injects silence on idle"]
+        DB_SIL --> DB_HTTP["HTTP WAV stream\n:8080/stream"]
+        DB_FF["FFmpegPCMAudio\n← :8081/stream"] --> DB_PLAY["Plays TS3 audio\nin Discord channel"]
+    end
+
+    subgraph bda ["bot-discord-audio — TS3AudioBot / C# .NET"]
+        BDA_CONN["Connects to TS3"] --> BDA_PLAY["Auto-plays :8080/stream\non connect (onconnect event)"]
+        BDA_PLAY --> BDA_OUT["Broadcasts Discord audio\nto all TS3 channel users"]
+    end
+
+    subgraph music ["musico-acosta — TS3AudioBot / C# .NET"]
+        MA["Standalone music bot\n(YouTube, SoundCloud, etc.)"]
+    end
+
+    TS3 -- "S2C Audio (Opus)" --> TL_CONN
+    TL_HTTP -- "HTTP GET" --> DB_FF
+    TL_HTTP -- "HTTP GET" --> bda
+    DB_HTTP -- "HTTP GET" --> BDA_CONN
+    BDA_OUT -- "Opus voice" --> TS3
+    DB_PLAY -- "Opus voice" --> DC
+    DC -- "PCM voice" --> DB_BOT
+    music -- "Opus voice" --> TS3
 ```
 
 ---
@@ -57,47 +51,35 @@ Built with **Rust**, **Python (asyncio)**, and **C# (.NET)**, deployed as four i
 
 ### Discord → TeamSpeak
 
-```
-Discord User speaks
-      │
-      ▼
-discord-bridge (Python)
-  - discord-ext-voice-recv captures raw PCM per-user
-  - DiscordAudioSink.write() called at 50 fps (20ms frames)
-  - PCM pushed to all connected HTTP clients
-  - Silence injected when no audio present (prevents stream stall)
-      │
-      ▼  HTTP GET /stream  (audio/wav, infinite body)
-bot-discord-audio (TS3AudioBot)
-  - !play http://localhost:8080/stream on connect (onconnect event)
-  - TS3AudioBot decodes WAV stream via ffmpeg
-  - Transmits Opus-encoded audio to TeamSpeak server
-      │
-      ▼
-TeamSpeak users hear Discord voice
+```mermaid
+sequenceDiagram
+    participant U as Discord User
+    participant DB as discord-bridge (Python)
+    participant BDA as bot-discord-audio (TS3AudioBot)
+    participant TS3 as TeamSpeak Server
+
+    U->>DB: speaks in Discord voice channel
+    note over DB: DiscordAudioSink.write() at 20ms frames<br/>Silence injected when no audio present
+    DB->>BDA: HTTP WAV stream (:8080/stream, infinite body)
+    note over BDA: onconnect: !play http://localhost:8080/stream
+    BDA->>TS3: Opus-encoded voice (UDP)
+    TS3->>TS3: Broadcasts to all users in channel
 ```
 
 ### TeamSpeak → Discord
 
-```
-TeamSpeak user speaks
-      │
-      ▼
-ts3-listener (Rust)
-  - Connects to TS3 server via tsproto (TS3 UDP client protocol)
-  - Receives S2C audio packets (Opus-encoded)
-  - tsclientlib AudioHandler decodes Opus → f32 PCM
-  - audio_pump task runs at 20ms intervals
-  - PCM converted f32 → i16 LE and broadcast via Tokio channel
-      │
-      ▼  HTTP GET /stream  (audio/wav, infinite body)
-discord-bridge (Python)
-  - FFmpegPCMAudio pulls :8081/stream
-  - Re-encodes to Discord's required format (48kHz, stereo, Opus)
-  - Plays in the connected Discord voice channel
-      │
-      ▼
-Discord users hear TeamSpeak voice
+```mermaid
+sequenceDiagram
+    participant TS3 as TeamSpeak Server
+    participant TL as ts3-listener (Rust)
+    participant DB as discord-bridge (Python)
+    participant DC as Discord Channel
+
+    TS3->>TL: S2C Audio packets (Opus, UDP)
+    note over TL: AudioHandler decodes Opus -> f32 PCM<br/>audio_pump at 20ms, f32 -> i16 LE<br/>Tokio broadcast channel
+    TL->>DB: HTTP WAV stream (:8081/stream)
+    note over DB: FFmpegPCMAudio re-encodes WAV<br/>to 48kHz stereo Opus
+    DB->>DC: Opus voice via Discord WebRTC
 ```
 
 ---
